@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	farm "github.com/dgryski/go-farm"
@@ -68,21 +67,9 @@ func (s *Server) Serve() error {
 	l := strings.Split(s.hosts, ",")
 	wg.Add(len(l))
 
-	serve := func(host string, iface string) {
+	serve := func(host string) {
 		defer wg.Done()
-
-		devbind := func(network string, address string, conn syscall.RawConn) error {
-			if iface != "" {
-				return conn.Control(func(descriptor uintptr) {
-					syscall.SetsockoptString(int(descriptor), syscall.SOL_SOCKET, syscall.SO_BINDTODEVICE, iface)
-				})
-			} else {
-				return nil
-			}
-		}
-
-		config := &net.ListenConfig{Control: devbind}
-		lis, err := config.Listen(context.Background(), "tcp", host)
+		lis, err := net.Listen("tcp", host)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"Topic": "grpc",
@@ -99,18 +86,8 @@ func (s *Server) Serve() error {
 		}).Warn("accept failed")
 	}
 
-	for _, hostAndIface := range l {
-		hostAndIfaceSplit := strings.Split(hostAndIface, "@")
-		if len(hostAndIfaceSplit) == 1 {
-			go serve(hostAndIfaceSplit[0], "")
-		} else if len(hostAndIfaceSplit) == 2 {
-			go serve(hostAndIfaceSplit[0], hostAndIfaceSplit[1])
-		} else {
-			log.WithFields(log.Fields{
-				"Topic": "grpc",
-				"Key":   hostAndIface,
-			}).Warn("error parsing host string")
-		}
+	for _, host := range l {
+		go serve(host)
 	}
 	wg.Wait()
 	return nil
