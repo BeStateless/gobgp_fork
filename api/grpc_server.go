@@ -67,9 +67,22 @@ func (s *Server) Serve() error {
 	l := strings.Split(s.hosts, ",")
 	wg.Add(len(l))
 
-	serve := func(host string) {
+	serve := func(fullHost string) {
 		defer wg.Done()
-		lis, err := net.Listen("tcp", host)
+
+		// If the full host string is like unix:/foo/bar then use unix domain sockets rather than TCP sockets.
+		var protocol string
+		var host string
+		parts := strings.Split(fullHost, ":")
+		if len(parts) == 2 && parts[0] == "unix" {
+			protocol = "unix"
+			host = parts[1]
+		} else {
+			protocol = "tcp"
+			host = fullHost
+		}
+
+		lis, err := net.Listen(protocol, host)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"Topic": "grpc",

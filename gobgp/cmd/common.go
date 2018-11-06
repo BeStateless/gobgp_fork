@@ -257,7 +257,12 @@ func newClient() *cli.Client {
 			grpc.WithTransportCredentials(creds),
 		}
 	}
-	target := net.JoinHostPort(globalOpts.Host, strconv.Itoa(globalOpts.Port))
+	var target string
+	if globalOpts.UnixSocket != "" {
+		target = fmt.Sprintf("unix://%s", globalOpts.UnixSocket)
+	} else {
+		target = net.JoinHostPort(globalOpts.Host, strconv.Itoa(globalOpts.Port))
+	}
 	client, err := cli.New(target, grpcOpts...)
 	if err != nil {
 		exitWithError(fmt.Errorf("failed to connect to %s over gRPC: %s", target, err))

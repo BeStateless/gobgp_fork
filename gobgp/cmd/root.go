@@ -25,6 +25,7 @@ import (
 )
 
 var globalOpts struct {
+	UnixSocket   string
 	Host         string
 	Port         int
 	Debug        bool
@@ -70,6 +71,7 @@ func NewRootCmd() *cobra.Command {
 		},
 	}
 
+	rootCmd.PersistentFlags().StringVarP(&globalOpts.UnixSocket, "unix-socket", "", "", "Location of unix socket to use instead of TCP.")
 	rootCmd.PersistentFlags().StringVarP(&globalOpts.Host, "host", "u", "127.0.0.1", "host")
 	rootCmd.PersistentFlags().IntVarP(&globalOpts.Port, "port", "p", 50051, "port")
 	rootCmd.PersistentFlags().BoolVarP(&globalOpts.Json, "json", "j", false, "use json format to output format")
