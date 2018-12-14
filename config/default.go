@@ -336,6 +336,10 @@ func setDefaultPolicyConfigValuesWithViper(v *viper.Viper, p *PolicyDefinition) 
 	return nil
 }
 
+func SetDefaultConfigValuesWithViper(v *viper.Viper, b *BgpConfigSet) error {
+	return setDefaultConfigValuesWithViper(v, b)
+}
+
 func setDefaultConfigValuesWithViper(v *viper.Viper, b *BgpConfigSet) error {
 	if v == nil {
 		v = viper.New()

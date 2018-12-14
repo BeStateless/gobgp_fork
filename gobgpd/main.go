@@ -158,7 +158,7 @@ func main() {
 		grpcOpts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	// start grpc Server
-	apiServer := api.NewServer(bgpServer, grpc.NewServer(grpcOpts...), opts.GrpcHosts)
+	apiServer := api.NewServer(bgpServer, grpc.NewServer(grpcOpts...), opts.GrpcHosts, configCh)
 	go func() {
 		if err := apiServer.Serve(); err != nil {
 			log.Fatalf("failed to listen grpc port: %s", err)

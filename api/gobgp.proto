@@ -88,6 +88,7 @@ service GobgpApi {
   rpc AddDynamicNeighbor(AddDynamicNeighborRequest) returns (AddDynamicNeighborResponse) {}
   rpc AddCollector(AddCollectorRequest) returns (AddCollectorResponse) {}
   rpc Shutdown(ShutdownRequest) returns (ShutdownResponse) {}
+  rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {}
 }
 
 // Constants for address families
@@ -1339,4 +1340,17 @@ message ShutdownRequest{
 }
 
 message ShutdownResponse{
+}
+
+enum ConfigFormat {
+  TOML = 0;
+  JSON = 1;
+  YAML = 2;
+}
+message SetConfigRequest{
+  string config = 1;
+  ConfigFormat config_format = 2;
+}
+
+message SetConfigResponse{
 }

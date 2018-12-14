@@ -30,6 +30,7 @@ import (
 	farm "github.com/dgryski/go-farm"
 	"github.com/golang/protobuf/ptypes/any"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -44,19 +45,21 @@ type Server struct {
 	bgpServer  *server.BgpServer
 	grpcServer *grpc.Server
 	hosts      string
+	configCh   chan *config.BgpConfigSet
 }
 
-func NewGrpcServer(b *server.BgpServer, hosts string) *Server {
+func NewGrpcServer(b *server.BgpServer, hosts string, configCh chan *config.BgpConfigSet) *Server {
 	size := 256 << 20
-	return NewServer(b, grpc.NewServer(grpc.MaxRecvMsgSize(size), grpc.MaxSendMsgSize(size)), hosts)
+	return NewServer(b, grpc.NewServer(grpc.MaxRecvMsgSize(size), grpc.MaxSendMsgSize(size)), hosts, configCh)
 }
 
-func NewServer(b *server.BgpServer, g *grpc.Server, hosts string) *Server {
+func NewServer(b *server.BgpServer, g *grpc.Server, hosts string, configCh chan *config.BgpConfigSet) *Server {
 	grpc.EnableTracing = false
 	s := &Server{
 		bgpServer:  b,
 		grpcServer: g,
 		hosts:      hosts,
+		configCh:   configCh,
 	}
 	RegisterGobgpApiServer(g, s)
 	return s
@@ -979,8 +982,8 @@ func (s *Server) AddBmp(ctx context.Context, arg *AddBmpRequest) (*AddBmpRespons
 		return nil, fmt.Errorf("invalid bmp route monitoring policy: %d", arg.Type)
 	}
 	return &AddBmpResponse{}, s.bgpServer.AddBmp(&config.BmpServerConfig{
-		Address: arg.Address,
-		Port:    arg.Port,
+		Address:               arg.Address,
+		Port:                  arg.Port,
 		RouteMonitoringPolicy: t,
 	})
 }
@@ -1089,7 +1092,7 @@ func (s *Server) EnableZebra(ctx context.Context, arg *EnableZebraRequest) (*Ena
 		}
 	}
 	return &EnableZebraResponse{}, s.bgpServer.StartZebraClient(&config.ZebraConfig{
-		Url: arg.Url,
+		Url:                       arg.Url,
 		RedistributeRouteTypeList: arg.RouteTypes,
 		Version:                   uint8(arg.Version),
 		NexthopTriggerEnable:      arg.NexthopTriggerEnable,
@@ -2750,7 +2753,7 @@ func (s *Server) GetPolicyAssignment(ctx context.Context, arg *GetPolicyAssignme
 		Default:  def,
 		Policies: policies,
 	}
-	return &GetPolicyAssignmentResponse{NewAPIPolicyAssignmentFromTableStruct(t)}, err
+	return &GetPolicyAssignmentResponse{Assignment: NewAPIPolicyAssignmentFromTableStruct(t)}, err
 }
 
 func defaultRouteType(d RouteAction) table.RouteType {
@@ -3006,6 +3009,41 @@ func (s *Server) AddCollector(ctx context.Context, arg *AddCollectorRequest) (*A
 		DbName:            arg.DbName,
 		TableDumpInterval: arg.TableDumpInterval,
 	})
+}
+
+func (s *Server) SetConfig(ctx context.Context, arg *SetConfigRequest) (*SetConfigResponse, error) {
+
+	log.Info("Hello from setconfig")
+
+	var cfg = []byte(arg.Config)
+	var configType string
+	switch arg.ConfigFormat {
+	case ConfigFormat_TOML:
+		configType = "toml"
+	case ConfigFormat_JSON:
+		configType = "json"
+	case ConfigFormat_YAML:
+		configType = "yaml"
+	}
+
+	c := &config.BgpConfigSet{}
+	v := viper.New()
+	v.SetConfigType(configType)
+
+	var err error
+	if err = v.ReadConfig(bytes.NewBuffer(cfg)); err != nil {
+		return nil, fmt.Errorf("Could not read config. Error: %s", err)
+	}
+	if err = v.UnmarshalExact(c); err != nil {
+		return nil, fmt.Errorf("Could not parse config. Error: %s", err)
+	}
+	if err = config.SetDefaultConfigValuesWithViper(v, c); err != nil {
+		return nil, fmt.Errorf("Could not set default values. Error: %s", err)
+	}
+
+	s.configCh <- c
+
+	return &SetConfigResponse{}, nil
 }
 
 func (s *Server) Shutdown(ctx context.Context, arg *ShutdownRequest) (*ShutdownResponse, error) {
