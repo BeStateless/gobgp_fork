@@ -138,12 +138,7 @@ type BgpServer struct {
 	uuidMap      map[uuid.UUID]string
 }
 
-func NewBgpServer(opt ...ServerOption) *BgpServer {
-	opts := options{}
-	for _, o := range opt {
-		o(&opts)
-	}
-
+func NewBgpServer() *BgpServer {
 	roaManager, _ := newROAManager(0)
 	s := &BgpServer{
 		neighborMap:  make(map[string]*peer),
@@ -156,9 +151,24 @@ func NewBgpServer(opt ...ServerOption) *BgpServer {
 	}
 	s.bmpManager = newBmpClientManager(s)
 	s.mrtManager = newMrtManager(s)
+	return s
+}
+
+func NewBgpServerWithAPI(configCh chan *config.BgpConfigSet, opt ...ServerOption) *BgpServer {
+	opts := options{}
+	for _, o := range opt {
+		o(&opts)
+	}
+
+	s := NewBgpServer()
+
 	if len(opts.grpcAddress) != 0 {
+		if configCh == nil {
+			log.Fatalf("Nil config channel pointer provided to GRPC server")
+			return nil
+		}
 		grpc.EnableTracing = false
-		api := newAPIserver(s, grpc.NewServer(opts.grpcOption...), opts.grpcAddress)
+		api := newAPIserver(s, grpc.NewServer(opts.grpcOption...), opts.grpcAddress, configCh)
 		go func() {
 			if err := api.serve(); err != nil {
 				log.Fatalf("failed to listen grpc port: %s", err)

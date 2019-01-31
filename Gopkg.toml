@@ -34,8 +34,8 @@
   version = "1.1.0"
 
 [[constraint]]
-  branch = "master"
   name = "github.com/golang/protobuf"
+  version = "1.2.0"
 
 [[constraint]]
   name = "github.com/jessevdk/go-flags"
@@ -74,5 +74,10 @@
   name = "golang.org/x/net"
 
 [[constraint]]
+  name = "golang.org/x/sys"
+  revision = "aca44879d5644da7c5b8ec6a1115e9b6ea6c40d9"
+
+[[constraint]]
   name = "google.golang.org/grpc"
-  version = "1.5.1"
+  version = "1.17.2"
+

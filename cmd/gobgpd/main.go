@@ -157,7 +157,9 @@ func main() {
 	}
 
 	log.Info("gobgpd started")
-	bgpServer := server.NewBgpServer(server.GrpcListenAddress(opts.GrpcHosts), server.GrpcOption(grpcOpts))
+	bgpServer := server.NewBgpServerWithAPI(configCh,
+											server.GrpcListenAddress(opts.GrpcHosts),
+											server.GrpcOption(grpcOpts))
 	go bgpServer.Serve()
 
 	if opts.ConfigFile != "" {

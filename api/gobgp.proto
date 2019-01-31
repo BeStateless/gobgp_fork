@@ -95,6 +95,8 @@ service GobgpApi {
 
   rpc AddBmp(AddBmpRequest) returns (google.protobuf.Empty);
   rpc DeleteBmp(DeleteBmpRequest) returns (google.protobuf.Empty);
+
+  rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {}
 }
 
 message StartBgpRequest {
@@ -1179,4 +1181,17 @@ message RPKIState {
 message Rpki {
   RPKIConf conf = 1;
   RPKIState state = 2;
+}
+
+enum ConfigFormat {
+  TOML = 0;
+  JSON = 1;
+  YAML = 2;
+}
+message SetConfigRequest{
+  string config = 1;
+  ConfigFormat config_format = 2;
+}
+
+ message SetConfigResponse{
 }

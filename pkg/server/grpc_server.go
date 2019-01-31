@@ -34,6 +34,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"github.com/spf13/viper"
 
 	api "github.com/osrg/gobgp/api"
 	"github.com/osrg/gobgp/internal/pkg/apiutil"
@@ -46,14 +47,16 @@ type server struct {
 	bgpServer  *BgpServer
 	grpcServer *grpc.Server
 	hosts      string
+	configCh   chan *config.BgpConfigSet
 }
 
-func newAPIserver(b *BgpServer, g *grpc.Server, hosts string) *server {
+func newAPIserver(b *BgpServer, g *grpc.Server, hosts string, configCh chan *config.BgpConfigSet) *server {
 	grpc.EnableTracing = false
 	s := &server{
 		bgpServer:  b,
 		grpcServer: g,
 		hosts:      hosts,
+		configCh:   configCh,
 	}
 	api.RegisterGobgpApiServer(g, s)
 	return s
@@ -1733,4 +1736,36 @@ func (s *server) StopBgp(ctx context.Context, r *api.StopBgpRequest) (*empty.Emp
 
 func (s *server) GetTable(ctx context.Context, r *api.GetTableRequest) (*api.GetTableResponse, error) {
 	return s.bgpServer.GetTable(ctx, r)
+}
+
+func (s *server) SetConfig(ctx context.Context, arg *api.SetConfigRequest) (*api.SetConfigResponse, error) {
+ 	var cfg = []byte(arg.Config)
+	var configType string
+	switch arg.ConfigFormat {
+	case api.ConfigFormat_TOML:
+		configType = "toml"
+	case api.ConfigFormat_JSON:
+		configType = "json"
+	case api.ConfigFormat_YAML:
+		configType = "yaml"
+	}
+
+ 	c := &config.BgpConfigSet{}
+	v := viper.New()
+	v.SetConfigType(configType)
+
+ 	var err error
+	if err = v.ReadConfig(bytes.NewBuffer(cfg)); err != nil {
+		return nil, fmt.Errorf("Could not read config. Error: %s", err)
+	}
+	if err = v.UnmarshalExact(c); err != nil {
+		return nil, fmt.Errorf("Could not parse config. Error: %s", err)
+	}
+	if err = config.SetDefaultConfigValuesWithViper(v, c); err != nil {
+		return nil, fmt.Errorf("Could not set default values. Error: %s", err)
+	}
+
+ 	s.configCh <- c
+
+ 	return &api.SetConfigResponse{}, nil
 }
